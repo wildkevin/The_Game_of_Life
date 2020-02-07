@@ -1,0 +1,587 @@
+LINE ADDR CONTENTS SOURCE LINE
+  1.              ;Ye Wang
+  2.              ;SID: 914411934
+  3.              
+  4.              	.equ	@,$000
+  5.              	.equ	crt_ctrl,$316
+  6.              	.equ	crt_data,$317
+  7.              	.equ	tim_ctrl,$030
+  8.              	.equ	tim_stat,$030
+  9.              	.equ	tim_valu,$031
+ 10.              	.equ	tim_cntr,$034
+ 11.              	.equ	reset_ready_bit,$40
+ 12.              	.equ	start_after_load,$10
+ 13.              	.equ	put_str,$E05
+ 14.              
+ 15.              	.equ	enable_ints,$80
+ 16.              	.equ	kbd_ctrl,$000
+ 17.              	.equ	kbd_data,$001
+ 18.              
+ 19.              	.equ	stack,$800
+ 20.  000 010000  	ldx#	0
+ 21.  001 020800  	lds#	stack
+ 22.  002 030000  	ldf#	0
+ 23.  003 000000  	lda#	0
+ 24.              
+ 25.  004 08001B  	psh#	start_len
+ 26.  005 080101  	psh#	start_prom
+ 27.  006 412E05  	jsr	put_str
+ 28.  007 120002  	ads#	2
+ 29.  008 412E06  	jsr	$E06	;newline
+ 30.              
+ 31.  009 08000C  	psh#	gen_len
+ 32.  00A 08010A  	psh#	gen_prom
+ 33.  00B 412E05  	jsr	put_str
+ 34.  00C 120002  	ads#	2
+ 35.  00D 00212B  	lda	gen_num
+ 36.  00E 412E00  	jsr	$E00	;print gen
+ 37.              
+ 38.  00F 08012E  	psh#	old_array
+ 39.  010 082158  	psh	rows
+ 40.  011 082159  	psh	columns
+ 41.  012 412500  	jsr	print_board
+ 42.  013 120003  	ads#	3
+ 43.              
+ 44.  014 080043  main_outloop:	psh#	prompt_len
+ 45.  015 08010E  	psh#	prompt
+ 46.  016 412E05  	jsr	put_str
+ 47.  017 120002  	ads#	2
+ 48.  018 FFF033  	cie
+ 49.  019 412535  	jsr	ask
+ 50.  01A 04212C  	sta	iteration
+ 51.  01B 0A212D  	clr	main_count
+ 52.  01C 200000  	cma#	0
+ 53.  01D 482046  	jeq	main_outend
+ 54.              
+ 55.  01E 00212D  main_inloop:	lda	main_count
+ 56.  01F 20212C  	cma	iteration
+ 57.  020 4B2014  	jge	main_outloop
+ 58.              
+ 59.  021 002100  	lda	reload
+ 60.  022 732031  	outw	tim_valu
+ 61.  023 000050  	lda#	reset_ready_bit + start_after_load
+ 62.  024 712030  	outb	tim_ctrl
+ 63.              
+ 64.  025 000080  	lda#	enable_ints
+ 65.  026 712000  	outb	kbd_ctrl
+ 66.  027 FFF032  	sie
+ 67.              
+ 68.  028 702030  time_loop:	inb	tim_stat	;just kill time
+ 69.  029 4B2028  	jge	time_loop
+ 70.  02A 000040  	lda#	reset_ready_bit
+ 71.  02B 712030  	outb	tim_ctrl
+ 72.              
+ 73.  02C 08000C  	psh#	gen_len
+ 74.  02D 08010A  	psh#	gen_prom
+ 75.  02E 412E05  	jsr	put_str
+ 76.  02F 120002  	ads#	2
+ 77.  030 1B212B  	inc	gen_num
+ 78.  031 00212B  	lda	gen_num
+ 79.  032 412E00  	jsr	$E00	;print gen
+ 80.              
+ 81.  033 08012E  	psh#	old_array
+ 82.  034 082158  	psh	rows
+ 83.  035 082159  	psh	columns
+ 84.  036 08015A  	psh#	new_array
+ 85.  037 412400  	jsr	nextGen
+ 86.  038 120004  	ads#	4
+ 87.              
+ 88.  039 08015A  	psh#	new_array
+ 89.  03A 082158  	psh	rows
+ 90.  03B 082159  	psh	columns
+ 91.  03C 412500  	jsr	print_board
+ 92.  03D 120003  	ads#	3
+ 93.              
+ 94.  03E 08012E  	psh#	old_array
+ 95.  03F 082158  	psh	rows
+ 96.  040 082159  	psh	columns
+ 97.  041 08015A  	psh#	new_array
+ 98.  042 412522  	jsr	copy_board
+ 99.  043 120004  	ads#	4
+100.              
+101.  044 1B212D  	inc	main_count
+102.  045 40201E  	jmp	main_inloop
+103.              
+104.              
+105.  046 080010  main_outend:	psh#	end_len
+106.  047 080125  	psh#	end_prom
+107.  048 412E05  	jsr	put_str
+108.  049 120002  	ads#	2
+109.  04A FFFFFF  	hlt
+110.              
+111.              	.equ	@,$100
+112.  100 00C000  reload:	.word	$00C000
+113.  101 486572  start_prom:	.char	'Here is the starting grid: ',start_len
+      102 652069
+      103 732074
+      104 686520
+      105 737461
+      106 727469
+      107 6E6720
+      108 677269
+      109 643A20
+114.  10A 47656E  gen_prom:	.char	'Generation: ', gen_len
+      10B 657261
+      10C 74696F
+      10D 6E3A20
+115.  10E 486F77  prompt: 	.char	'How many new generations would you like to print (enter 0 to end)? ',prompt_len
+      10F 206D61
+      110 6E7920
+      111 6E6577
+      112 206765
+      113 6E6572
+      114 617469
+      115 6F6E73
+      116 20776F
+      117 756C64
+      118 20796F
+      119 75206C
+      11A 696B65
+      11B 20746F
+      11C 207072
+      11D 696E74
+      11E 202865
+      11F 6E7465
+      120 722030
+      121 20746F
+      122 20656E
+      123 64293F
+      124 202020
+116.  125 456E64  end_prom:	.char	'End of program. ', end_len
+      126 206F66
+      127 207072
+      128 6F6772
+      129 616D2E
+      12A 202020
+117.  12B 000000  gen_num:	.word	
+118.  12C 000000  iteration:	.word	
+119.  12D 000000  main_count:	.word	
+120.  12E 000000  old_array:	.word	0
+121.  12F 000000  	.word	0
+122.  130 000000  	.word	0
+123.  131 000000  	.word	0
+124.  132 000000  	.word	0
+125.  133 000000  	.word	0
+126.  134 000000  	.word	0;
+127.  135 000000  	.word	0
+128.  136 000000  	.word	0
+129.  137 000001  	.word	1
+130.  138 000000  	.word	0
+131.  139 000000  	.word	0
+132.  13A 000000  	.word	0
+133.  13B 000000  	.word	0;
+134.  13C 000000  	.word	0
+135.  13D 000000  	.word	0
+136.  13E 000000  	.word	0
+137.  13F 000001  	.word	1
+138.  140 000000  	.word	0
+139.  141 000000  	.word	0
+140.  142 000000  	.word	0;
+141.  143 000000  	.word	0
+142.  144 000001  	.word	1
+143.  145 000001  	.word	1
+144.  146 000001  	.word	1
+145.  147 000000  	.word	0
+146.  148 000000  	.word	0
+147.  149 000000  	.word	0;
+148.  14A 000000  	.word	0
+149.  14B 000000  	.word	0
+150.  14C 000000  	.word	0
+151.  14D 000000  	.word	0
+152.  14E 000000  	.word	0
+153.  14F 000000  	.word	0
+154.  150 000000  	.word	0;
+155.  151 000000  	.word	0
+156.  152 000000  	.word	0
+157.  153 000000  	.word	0
+158.  154 000000  	.word	0
+159.  155 000000  	.word	0
+160.  156 000000  	.word	0
+161.  157 000000  	.word	0
+162.              
+163.  158 000006  rows:	.word	6
+164.  159 000007  columns:	.word	7
+165.  15A 000000  new_array:	.word
+166.              
+167.              
+168.              	.equ	@,$400
+169.              ;find the next generation
+170.              	.equ	old,5
+171.              	.equ	nr,4
+172.              	.equ	nc,3
+173.              	.equ	new,2
+174.  400 FFF012  nextGen:	pshf
+175.  401 FFF008  	tsf
+176.  402 FFF011  	pshx
+177.  403 FFF010  	psha
+178.  404 003003  	lda ! nc
+179.  405 183004  	mul ! nr
+180.  406 0424AD  	sta	elements
+181.  407 140001  	sba#	1
+182.  408 0424B0  	sta	nrnc_1
+183.  409 003003  	lda ! nc
+184.  40A 140001  	sba#	1
+185.  40B 0424AF  	sta	nc_1
+186.              
+187.              ;construct a zeros' count array
+188.  40C 010000  	ldx#	0
+189.  40D 2124AD  init_loop:	cmx	elements
+190.  40E 4B2412  	jge	init_end
+191.  40F 0A44B1  	clr+	count
+192.  410 110001  	adx#	1
+193.  411 40240D  	jmp	init_loop
+194.  412 010000  init_end:	ldx#	0
+195.              
+196.              ;fill the count array
+197.  413 2124AD  fill_loop:	cmx	elements
+198.  414 4B2491  	jge	fill_end
+199.  415 0524AE  	stx 	tmp
+200.              
+201.  416 0024AE  lu_if:	lda	tmp
+202.  417 203003  	cma ! nc
+203.  418 4C2427  	jle	u_if
+204.  419 1A3003  	mod ! nc
+205.  41A 200000  	cma#	0
+206.  41B 482427  	jeq	u_if
+207.  41C 0024AE  	lda	tmp
+208.  41D 140001  	sba#	1
+209.  41E 143003  	sba ! nc
+210.  41F FFF000  	tax
+211.  420 009005  	lda& ! old
+212.  421 200001  	cma#	1
+213.  422 492427  	jne	u_if
+214.  423 0124AE  	ldx	tmp
+215.  424 0044B1  	lda+	count
+216.  425 100001  	ada#	1
+217.  426 0444B1  	sta+	count 
+218.              
+219.  427 0024AE  u_if:	lda	tmp
+220.  428 203003  	cma ! nc
+221.  429 4A2433  	jlt	ru_if
+222.  42A 143003  	sba ! nc
+223.  42B FFF000  	tax
+224.  42C 009005  	lda& ! old
+225.  42D 200001  	cma#	1
+226.  42E 492433  	jne	ru_if
+227.  42F 0124AE  	ldx	tmp
+228.  430 0044B1  	lda+	count
+229.  431 100001  	ada#	1
+230.  432 0444B1  	sta+	count 
+231.              
+232.  433 0024AE  ru_if:	lda	tmp
+233.  434 203003  	cma ! nc
+234.  435 4A2444  	jlt	l_if
+235.  436 1A3003  	mod !	nc
+236.  437 2004AF  	cma#	nc_1
+237.  438 482444  	jeq	l_if
+238.  439 0024AE  	lda	tmp
+239.  43A 100001  	ada#	1
+240.  43B 143003  	sba ! nc
+241.  43C FFF000  	tax
+242.  43D 009005  	lda& ! old
+243.  43E 200001  	cma#	1
+244.  43F 492444  	jne	l_if
+245.  440 0124AE  	ldx	tmp
+246.  441 0044B1  	lda+	count
+247.  442 100001  	ada#	1
+248.  443 0444B1  	sta+	count 
+249.              	
+250.  444 0024AE  l_if:	lda	tmp
+251.  445 1A3003  	mod ! nc
+252.  446 200000  	cma#	0
+253.  447 482452  	jeq	r_if
+254.  448 0024AE  	lda	tmp
+255.  449 140001  	sba#	1
+256.  44A FFF000  	tax
+257.  44B 009005  	lda& ! old
+258.  44C 200001  	cma#	1
+259.  44D 492452  	jne	r_if
+260.  44E 0124AE  	ldx	tmp
+261.  44F 0044B1  	lda+	count
+262.  450 100001  	ada#	1
+263.  451 0444B1  	sta+	count 
+264.              
+265.  452 0024AE  r_if:	lda	tmp
+266.  453 1A3003  	mod ! nc
+267.  454 2024AF  	cma	nc_1
+268.  455 482460  	jeq	ld_if
+269.  456 0024AE  	lda	tmp
+270.  457 100001  	ada#	1
+271.  458 FFF000  	tax
+272.  459 009005  	lda& ! old
+273.  45A 200001  	cma#	1
+274.  45B 492460  	jne	ld_if
+275.  45C 0124AE  	ldx	tmp
+276.  45D 0044B1  	lda+	count
+277.  45E 100001  	ada#	1
+278.  45F 0444B1  	sta+	count 
+279.              
+280.  460 0024AE  ld_if:	lda	tmp
+281.  461 2024B0  	cma	nrnc_1
+282.  462 4B2471  	jge	d_if
+283.  463 1A3003  	mod !	nc
+284.  464 200000  	cma#	0
+285.  465 482471  	jeq	d_if
+286.  466 0024AE  	lda	tmp
+287.  467 140001  	sba#	1
+288.  468 103003  	ada ! nc
+289.  469 FFF000  	tax
+290.  46A 009005  	lda& ! old
+291.  46B 200001  	cma#	1
+292.  46C 492471  	jne	d_if
+293.  46D 0124AE  	ldx	tmp
+294.  46E 0044B1  	lda+	count
+295.  46F 100001  	ada#	1
+296.  470 0444B1  	sta+	count 
+297.              
+298.  471 0024AE  d_if:	lda	tmp
+299.  472 2024B0  	cma	nrnc_1
+300.  473 4B247D  	jge	rd_if
+301.  474 103003  	ada ! nc
+302.  475 FFF000  	tax
+303.  476 009005  	lda& ! old
+304.  477 200001  	cma#	1
+305.  478 49247D  	jne	rd_if
+306.  479 0124AE  	ldx	tmp
+307.  47A 0044B1  	lda+	count
+308.  47B 100001  	ada#	1
+309.  47C 0444B1  	sta+	count 
+310.              
+311.  47D 0024AE  rd_if:	lda	tmp
+312.  47E 2024B0  	cma	nrnc_1
+313.  47F 4B248E  	jge	end_if
+314.  480 1A3003  	mod !	nc
+315.  481 2024AF  	cma	nc_1
+316.  482 48248E  	jeq	end_if
+317.  483 0024AE  	lda	tmp
+318.  484 100001  	ada#	1
+319.  485 103003  	ada ! nc
+320.  486 FFF000  	tax
+321.  487 009005  	lda& ! old
+322.  488 200001  	cma#	1
+323.  489 49248E  	jne	end_if
+324.  48A 0124AE  	ldx	tmp
+325.  48B 0044B1  	lda+	count
+326.  48C 100001  	ada#	1
+327.  48D 0444B1  	sta+	count
+328.              
+329.  48E 0124AE  end_if:	ldx	tmp
+330.  48F 110001  	adx#	1
+331.  490 402413  	jmp	fill_loop
+332.              
+333.              ;construct new array
+334.  491 010000  fill_end:	ldx#	0
+335.  492 2124AD  new_loop:	cmx	elements
+336.  493 4B24A9  	jge	finish
+337.              
+338.  494 0044B1  	lda+	count
+339.  495 200002  	cma#	2
+340.  496 4A24A2  	jlt	die
+341.  497 200003  	cma#	3
+342.  498 4D24A2  	jgt	die
+343.  499 009005  reborn:	lda& ! old
+344.  49A 200000  	cma#	0
+345.  49B 4924A5  	jne	keep
+346.  49C 0044B1  	lda+	count
+347.  49D 200003  	cma#	3
+348.  49E 4924A5  	jne	keep
+349.  49F 000001  	lda#	1
+350.  4A0 049002  	sta& ! new
+351.  4A1 4024A7  	jmp	next
+352.              
+353.  4A2 000000  die:	lda#	0
+354.  4A3 049002  	sta& ! new
+355.  4A4 4024A7  	jmp	next
+356.              
+357.  4A5 009005  keep:	lda& ! old
+358.  4A6 049002  	sta& ! new
+359.              	
+360.  4A7 110001  next:	adx#	1
+361.  4A8 402492  	jmp	new_loop
+362.              
+363.  4A9 FFF013  finish:	popa
+364.  4AA FFF014  	popx
+365.  4AB FFF015  	popf
+366.  4AC FFF040  	rtn
+367.  4AD 000000  elements:	.word	0
+368.  4AE 000000  tmp:	.word	0
+369.  4AF 000000  nc_1:	.word	0
+370.  4B0 000000  nrnc_1:	.word	0
+371.  4B1 000000  count:	.word
+372.              
+373.              	.equ	@,$500
+374.              ;print the current board
+375.              	.equ	print_arr,4
+376.              	.equ	print_nr,3
+377.              	.equ	print_nc,2
+378.  500 FFF012  print_board:	pshf
+379.  501 FFF008  	tsf
+380.  502 FFF011  	pshx
+381.  503 FFF010  	psha
+382.  504 003002  	lda ! print_nc
+383.  505 183003  	mul ! print_nr
+384.  506 042521  	sta	print_elem
+385.  507 010000  	ldx#	0
+386.  508 212521  print_loop:	cmx	print_elem
+387.  509 4B251C  	jge	print_fin
+388.  50A FFF003  	txa
+389.  50B 200000  	cma#	0
+390.  50C 482512  	jeq	print_cont
+391.  50D 1A3002  	mod ! print_nc
+392.  50E 200000  	cma#	0
+393.  50F 482511  	jeq	newline
+394.  510 402512  	jmp	print_cont
+395.  511 412E06  newline:	jsr	$E06	;newline
+396.  512 009004  print_cont:	lda& ! print_arr
+397.  513 200000  	cma#	0
+398.  514 492518  	jne	print_one
+399.  515 00002E  	lda#	'.'
+400.  516 712317  	outb	crt_data
+401.  517 40251A  	jmp	print_next
+402.  518 00002A  print_one:	lda#	'*'
+403.  519 712317  	outb	crt_data
+404.  51A 110001  print_next:	adx#	1
+405.  51B 402508  	jmp	print_loop
+406.  51C 412E06  print_fin:	jsr	$E06
+407.  51D FFF013  	popa
+408.  51E FFF014  	popx
+409.  51F FFF015  	popf
+410.  520 FFF040  	rtn
+411.  521 000000  print_elem:	.word
+412.              
+413.              
+414.              ;copy the new board to old board
+415.              	.equ	copy_old,5
+416.              	.equ	copy_nr,4
+417.              	.equ	copy_nc,3
+418.              	.equ	copy_new,2
+419.  522 FFF012  copy_board:	pshf
+420.  523 FFF008  	tsf
+421.  524 FFF011  	pshx
+422.  525 FFF010  	psha
+423.  526 003003  	lda ! copy_nc
+424.  527 183004  	mul ! copy_nr
+425.  528 042534  	sta	copy_elem
+426.  529 010000  	ldx#	0
+427.  52A 212534  copy_loop:	cmx	copy_elem
+428.  52B 4B2530  	jge	copy_end
+429.  52C 009002  	lda& ! copy_new
+430.  52D 049005  	sta& ! copy_old
+431.  52E 110001  	adx#	1
+432.  52F 40252A  	jmp	copy_loop
+433.  530 FFF013  copy_end:	popa
+434.  531 FFF014  	popx
+435.  532 FFF015  	popf
+436.  533 FFF040  	rtn
+437.  534 000000  copy_elem:	.word	0
+438.              
+439.              
+440.              
+441.              ;ask input
+442.  535 FFF011  ask:	pshx
+443.  536 010000  	ldx#	0
+444.  537 0A256C  	clr	input_val
+445.  538 702000  input_loop:	inb	$000
+446.  539 4B2538  	jge	input_loop
+447.  53A 702001  	inb	$001
+448.  53B 20000D  	cma#	$0D	;cr
+449.  53C 48254A  	jeq	input_cr
+450.  53D 200008  	cma#	$08	;bs
+451.  53E 482543  	jeq	input_bs
+452.              
+453.  53F 51256E  	stc	input
+454.  540 110001  	adx#	1
+455.  541 712317  	outb	crt_data
+456.  542 402538  	jmp	input_loop
+457.  543 150001  input_bs:	sbx#	1
+458.  544 712317  	outb	crt_data
+459.  545 000020  	lda#	' '
+460.  546 712317  	outb	crt_data
+461.  547 000008  	lda#	$08
+462.  548 712317  	outb	crt_data
+463.  549 402538  	jmp	input_loop
+464.              	
+465.  54A 000005  input_cr:	lda#	$05	;newline
+466.  54B 712316  	outb	crt_ctrl	;move_cursor
+467.  54C 05256D  	stx	input_len
+468.  54D 010000  	ldx#	0
+469.  54E 21256D  input_conv:	cmx	input_len
+470.  54F 4B2555  	jge	input_end
+471.  550 50256E  	ldc	input
+472.  551 140030  	sba#	$30
+473.  552 044569  	sta+	input_tmp
+474.  553 110001  	adx#	1
+475.  554 40254E  	jmp	input_conv
+476.              
+477.  555 010000  input_end:	ldx#	0
+478.  556 00256D  	lda	input_len
+479.  557 200001  	cma#	1
+480.  558 482564  	jeq	input_ones
+481.  559 200002  	cma#	2
+482.  55A 48255F  	jeq	input_tens
+483.  55B 004569  	lda+	input_tmp
+484.  55C 180064  	mul#	100
+485.  55D 04256C  	sta	input_val
+486.  55E 110001  	adx#	1
+487.  55F 004569  input_tens:	lda+	input_tmp
+488.  560 18000A  	mul#	10
+489.  561 10256C  	ada	input_val
+490.  562 04256C  	sta	input_val
+491.  563 110001  	adx#	1
+492.  564 004569  input_ones:	lda+	input_tmp
+493.  565 10256C  	ada	input_val
+494.  566 04256C  	sta	input_val
+495.  567 FFF014  	popx
+496.  568 FFF040  	rtn
+497.              
+498.  569 000000  input_tmp:	.blkw	3,0
+499.  56C 000000  input_val:	.word	0
+500.  56D 000000  input_len:	.word	0
+501.  56E FFFFFFFFFFFFFFFF  input:	.char
+502.              
+503.              	.equ	@,$700
+504.              ;keyboard interrupt
+505.  700 FFF010  kbd_int:	psha
+506.  701 702001  	inb	kbd_data
+507.  702 000001  	lda#	1
+508.  703 732034  	outw	tim_cntr
+509.  704 FFF013  	popa
+510.  705 FFF041  	irtn
+511.              
+512.              	.equ	@,$FF8
+513.  FF8 000700  	.word	kbd_int
+
+                     SYMBOL TABLE CONTENTS
+
+000535 = ASK             000159 = COLUMNS         000522 = COPY_BOARD      
+000534 = COPY_ELEM       000530 = COPY_END        00052A = COPY_LOOP       
+000003 = COPY_NC         000002 = COPY_NEW        000004 = COPY_NR         
+000005 = COPY_OLD        0004B1 = COUNT           000316 = CRT_CTRL        
+000317 = CRT_DATA        0004A2 = DIE             000471 = D_IF            
+0004AD = ELEMENTS        000080 = ENABLE_INTS     00048E = END_IF          
+000010 = END_LEN         000125 = END_PROM        000491 = FILL_END        
+000413 = FILL_LOOP       0004A9 = FINISH          00000C = GEN_LEN         
+00012B = GEN_NUM         00010A = GEN_PROM        000412 = INIT_END        
+00040D = INIT_LOOP       00056E = INPUT           000543 = INPUT_BS        
+00054E = INPUT_CONV      00054A = INPUT_CR        000555 = INPUT_END       
+00056D = INPUT_LEN       000538 = INPUT_LOOP      000564 = INPUT_ONES      
+00055F = INPUT_TENS      000569 = INPUT_TMP       00056C = INPUT_VAL       
+00012C = ITERATION       000000 = KBD_CTRL        000001 = KBD_DATA        
+000700 = KBD_INT         0004A5 = KEEP            000460 = LD_IF           
+000416 = LU_IF           000444 = L_IF            00012D = MAIN_COUNT      
+00001E = MAIN_INLOOP     000046 = MAIN_OUTEND     000014 = MAIN_OUTLOOP    
+000003 = NC              0004AF = NC_1            000002 = NEW             
+000511 = NEWLINE         00015A = NEW_ARRAY       000492 = NEW_LOOP        
+0004A7 = NEXT            000400 = NEXTGEN         000004 = NR              
+0004B0 = NRNC_1          000005 = OLD             00012E = OLD_ARRAY       
+000004 = PRINT_ARR       000500 = PRINT_BOARD     000512 = PRINT_CONT      
+000521 = PRINT_ELEM      00051C = PRINT_FIN       000508 = PRINT_LOOP      
+000002 = PRINT_NC        00051A = PRINT_NEXT      000003 = PRINT_NR        
+000518 = PRINT_ONE       00010E = PROMPT          000043 = PROMPT_LEN      
+000E05 = PUT_STR         00047D = RD_IF           000499 = REBORN          
+000100 = RELOAD          000040 = RESET_READY_BIT 000158 = ROWS            
+000433 = RU_IF           000452 = R_IF            000800 = STACK           
+000010 = START_AFTER_LOAD00001B = START_LEN       000101 = START_PROM      
+000028 = TIME_LOOP       000034 = TIM_CNTR        000030 = TIM_CTRL        
+000030 = TIM_STAT        000031 = TIM_VALU        0004AE = TMP             
+000427 = U_IF            

@@ -1,0 +1,513 @@
+;Ye Wang
+;SID: 914411934
+
+	.equ	@,$000
+	.equ	crt_ctrl,$316
+	.equ	crt_data,$317
+	.equ	tim_ctrl,$030
+	.equ	tim_stat,$030
+	.equ	tim_valu,$031
+	.equ	tim_cntr,$034
+	.equ	reset_ready_bit,$40
+	.equ	start_after_load,$10
+	.equ	put_str,$E05
+
+	.equ	enable_ints,$80
+	.equ	kbd_ctrl,$000
+	.equ	kbd_data,$001
+
+	.equ	stack,$800
+	ldx#	0
+	lds#	stack
+	ldf#	0
+	lda#	0
+
+	psh#	start_len
+	psh#	start_prom
+	jsr	put_str
+	ads#	2
+	jsr	$E06	;newline
+
+	psh#	gen_len
+	psh#	gen_prom
+	jsr	put_str
+	ads#	2
+	lda	gen_num
+	jsr	$E00	;print gen
+
+	psh#	old_array
+	psh	rows
+	psh	columns
+	jsr	print_board
+	ads#	3
+
+main_outloop:	psh#	prompt_len
+	psh#	prompt
+	jsr	put_str
+	ads#	2
+	cie
+	jsr	ask
+	sta	iteration
+	clr	main_count
+	cma#	0
+	jeq	main_outend
+
+main_inloop:	lda	main_count
+	cma	iteration
+	jge	main_outloop
+
+	lda	reload
+	outw	tim_valu
+	lda#	reset_ready_bit + start_after_load
+	outb	tim_ctrl
+
+	lda#	enable_ints
+	outb	kbd_ctrl
+	sie
+
+time_loop:	inb	tim_stat	;just kill time
+	jge	time_loop
+	lda#	reset_ready_bit
+	outb	tim_ctrl
+
+	psh#	gen_len
+	psh#	gen_prom
+	jsr	put_str
+	ads#	2
+	inc	gen_num
+	lda	gen_num
+	jsr	$E00	;print gen
+
+	psh#	old_array
+	psh	rows
+	psh	columns
+	psh#	new_array
+	jsr	nextGen
+	ads#	4
+
+	psh#	new_array
+	psh	rows
+	psh	columns
+	jsr	print_board
+	ads#	3
+
+	psh#	old_array
+	psh	rows
+	psh	columns
+	psh#	new_array
+	jsr	copy_board
+	ads#	4
+
+	inc	main_count
+	jmp	main_inloop
+
+
+main_outend:	psh#	end_len
+	psh#	end_prom
+	jsr	put_str
+	ads#	2
+	hlt
+
+	.equ	@,$100
+reload:	.word	$00C000
+start_prom:	.char	'Here is the starting grid: ',start_len
+gen_prom:	.char	'Generation: ', gen_len
+prompt: 	.char	'How many new generations would you like to print (enter 0 to end)? ',prompt_len
+end_prom:	.char	'End of program. ', end_len
+gen_num:	.word	
+iteration:	.word	
+main_count:	.word	
+old_array:	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0;
+	.word	0
+	.word	0
+	.word	1
+	.word	0
+	.word	0
+	.word	0
+	.word	0;
+	.word	0
+	.word	0
+	.word	0
+	.word	1
+	.word	0
+	.word	0
+	.word	0;
+	.word	0
+	.word	1
+	.word	1
+	.word	1
+	.word	0
+	.word	0
+	.word	0;
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0;
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+
+rows:	.word	6
+columns:	.word	7
+new_array:	.word
+
+
+	.equ	@,$400
+;find the next generation
+	.equ	old,5
+	.equ	nr,4
+	.equ	nc,3
+	.equ	new,2
+nextGen:	pshf
+	tsf
+	pshx
+	psha
+	lda ! nc
+	mul ! nr
+	sta	elements
+	sba#	1
+	sta	nrnc_1
+	lda ! nc
+	sba#	1
+	sta	nc_1
+
+;construct a zeros' count array
+	ldx#	0
+init_loop:	cmx	elements
+	jge	init_end
+	clr+	count
+	adx#	1
+	jmp	init_loop
+init_end:	ldx#	0
+
+;fill the count array
+fill_loop:	cmx	elements
+	jge	fill_end
+	stx 	tmp
+
+lu_if:	lda	tmp
+	cma ! nc
+	jle	u_if
+	mod ! nc
+	cma#	0
+	jeq	u_if
+	lda	tmp
+	sba#	1
+	sba ! nc
+	tax
+	lda& ! old
+	cma#	1
+	jne	u_if
+	ldx	tmp
+	lda+	count
+	ada#	1
+	sta+	count 
+
+u_if:	lda	tmp
+	cma ! nc
+	jlt	ru_if
+	sba ! nc
+	tax
+	lda& ! old
+	cma#	1
+	jne	ru_if
+	ldx	tmp
+	lda+	count
+	ada#	1
+	sta+	count 
+
+ru_if:	lda	tmp
+	cma ! nc
+	jlt	l_if
+	mod !	nc
+	cma#	nc_1
+	jeq	l_if
+	lda	tmp
+	ada#	1
+	sba ! nc
+	tax
+	lda& ! old
+	cma#	1
+	jne	l_if
+	ldx	tmp
+	lda+	count
+	ada#	1
+	sta+	count 
+	
+l_if:	lda	tmp
+	mod ! nc
+	cma#	0
+	jeq	r_if
+	lda	tmp
+	sba#	1
+	tax
+	lda& ! old
+	cma#	1
+	jne	r_if
+	ldx	tmp
+	lda+	count
+	ada#	1
+	sta+	count 
+
+r_if:	lda	tmp
+	mod ! nc
+	cma	nc_1
+	jeq	ld_if
+	lda	tmp
+	ada#	1
+	tax
+	lda& ! old
+	cma#	1
+	jne	ld_if
+	ldx	tmp
+	lda+	count
+	ada#	1
+	sta+	count 
+
+ld_if:	lda	tmp
+	cma	nrnc_1
+	jge	d_if
+	mod !	nc
+	cma#	0
+	jeq	d_if
+	lda	tmp
+	sba#	1
+	ada ! nc
+	tax
+	lda& ! old
+	cma#	1
+	jne	d_if
+	ldx	tmp
+	lda+	count
+	ada#	1
+	sta+	count 
+
+d_if:	lda	tmp
+	cma	nrnc_1
+	jge	rd_if
+	ada ! nc
+	tax
+	lda& ! old
+	cma#	1
+	jne	rd_if
+	ldx	tmp
+	lda+	count
+	ada#	1
+	sta+	count 
+
+rd_if:	lda	tmp
+	cma	nrnc_1
+	jge	end_if
+	mod !	nc
+	cma	nc_1
+	jeq	end_if
+	lda	tmp
+	ada#	1
+	ada ! nc
+	tax
+	lda& ! old
+	cma#	1
+	jne	end_if
+	ldx	tmp
+	lda+	count
+	ada#	1
+	sta+	count
+
+end_if:	ldx	tmp
+	adx#	1
+	jmp	fill_loop
+
+;construct new array
+fill_end:	ldx#	0
+new_loop:	cmx	elements
+	jge	finish
+
+	lda+	count
+	cma#	2
+	jlt	die
+	cma#	3
+	jgt	die
+reborn:	lda& ! old
+	cma#	0
+	jne	keep
+	lda+	count
+	cma#	3
+	jne	keep
+	lda#	1
+	sta& ! new
+	jmp	next
+
+die:	lda#	0
+	sta& ! new
+	jmp	next
+
+keep:	lda& ! old
+	sta& ! new
+	
+next:	adx#	1
+	jmp	new_loop
+
+finish:	popa
+	popx
+	popf
+	rtn
+elements:	.word	0
+tmp:	.word	0
+nc_1:	.word	0
+nrnc_1:	.word	0
+count:	.word
+
+	.equ	@,$500
+;print the current board
+	.equ	print_arr,4
+	.equ	print_nr,3
+	.equ	print_nc,2
+print_board:	pshf
+	tsf
+	pshx
+	psha
+	lda ! print_nc
+	mul ! print_nr
+	sta	print_elem
+	ldx#	0
+print_loop:	cmx	print_elem
+	jge	print_fin
+	txa
+	cma#	0
+	jeq	print_cont
+	mod ! print_nc
+	cma#	0
+	jeq	newline
+	jmp	print_cont
+newline:	jsr	$E06	;newline
+print_cont:	lda& ! print_arr
+	cma#	0
+	jne	print_one
+	lda#	'.'
+	outb	crt_data
+	jmp	print_next
+print_one:	lda#	'*'
+	outb	crt_data
+print_next:	adx#	1
+	jmp	print_loop
+print_fin:	jsr	$E06
+	popa
+	popx
+	popf
+	rtn
+print_elem:	.word
+
+
+;copy the new board to old board
+	.equ	copy_old,5
+	.equ	copy_nr,4
+	.equ	copy_nc,3
+	.equ	copy_new,2
+copy_board:	pshf
+	tsf
+	pshx
+	psha
+	lda ! copy_nc
+	mul ! copy_nr
+	sta	copy_elem
+	ldx#	0
+copy_loop:	cmx	copy_elem
+	jge	copy_end
+	lda& ! copy_new
+	sta& ! copy_old
+	adx#	1
+	jmp	copy_loop
+copy_end:	popa
+	popx
+	popf
+	rtn
+copy_elem:	.word	0
+
+
+
+;ask input
+ask:	pshx
+	ldx#	0
+	clr	input_val
+input_loop:	inb	$000
+	jge	input_loop
+	inb	$001
+	cma#	$0D	;cr
+	jeq	input_cr
+	cma#	$08	;bs
+	jeq	input_bs
+
+	stc	input
+	adx#	1
+	outb	crt_data
+	jmp	input_loop
+input_bs:	sbx#	1
+	outb	crt_data
+	lda#	' '
+	outb	crt_data
+	lda#	$08
+	outb	crt_data
+	jmp	input_loop
+	
+input_cr:	lda#	$05	;newline
+	outb	crt_ctrl	;move_cursor
+	stx	input_len
+	ldx#	0
+input_conv:	cmx	input_len
+	jge	input_end
+	ldc	input
+	sba#	$30
+	sta+	input_tmp
+	adx#	1
+	jmp	input_conv
+
+input_end:	ldx#	0
+	lda	input_len
+	cma#	1
+	jeq	input_ones
+	cma#	2
+	jeq	input_tens
+	lda+	input_tmp
+	mul#	100
+	sta	input_val
+	adx#	1
+input_tens:	lda+	input_tmp
+	mul#	10
+	ada	input_val
+	sta	input_val
+	adx#	1
+input_ones:	lda+	input_tmp
+	ada	input_val
+	sta	input_val
+	popx
+	rtn
+
+input_tmp:	.blkw	3,0
+input_val:	.word	0
+input_len:	.word	0
+input:	.char
+
+	.equ	@,$700
+;keyboard interrupt
+kbd_int:	psha
+	inb	kbd_data
+	lda#	1
+	outw	tim_cntr
+	popa
+	irtn
+
+	.equ	@,$FF8
+	.word	kbd_int
